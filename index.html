@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiffSMP - Servidor de Minecraft</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .minecraft-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(2deg); }
+        }
+        
+        .float-animation {
+            animation: float 4s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { 
+                box-shadow: 0 0 20px rgba(255,255,255,0.1),
+                            0 0 40px rgba(255,255,255,0.05);
+            }
+            50% { 
+                box-shadow: 0 0 30px rgba(255,255,255,0.2),
+                            0 0 60px rgba(255,255,255,0.1);
+            }
+        }
+        
+        .pulse-glow {
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+        
+        @keyframes slide-in {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .slide-in {
+            animation: slide-in 0.8s ease-out;
+        }
+        
+        @keyframes rotate-border {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .server-ip {
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+            font-weight: 700;
+        }
+        
+        .gradient-border {
+            position: relative;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+        }
+        
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: inherit;
+            padding: 2px;
+            background: linear-gradient(135deg, #ffffff, #808080, #ffffff);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            opacity: 0.3;
+        }
+        
+        .card-hover {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-8px) scale(1.02);
+        }
+        
+        .owner-badge {
+            background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .admin-badge {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid #4a4a4a;
+        }
+        
+        .minecraft-head {
+            image-rendering: pixelated;
+            filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+            transition: all 0.3s ease;
+        }
+        
+        .minecraft-head:hover {
+            filter: drop-shadow(0 12px 24px rgba(255,255,255,0.3));
+            transform: scale(1.1) rotate(5deg);
+        }
+        
+        .stat-card {
+            background: linear-gradient(145deg, #1a1a1a, #0f0f0f);
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            margin: 60px 0;
+        }
+        
+        .glow-effect {
+            position: relative;
+        }
+        
+        .glow-effect::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120%;
+            height: 120%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .glow-effect:hover::after {
+            opacity: 1;
+        }
+        
+        .pattern-dots {
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        
+        .icon-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .icon-wrapper:hover {
+            background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+            border-color: rgba(255,255,255,0.4);
+            transform: rotate(5deg) scale(1.1);
+        }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen overflow-x-hidden">
+    <!-- Header con Logo de Kick -->
+    <header class="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b-2 border-white/20 sticky top-0 z-50 backdrop-blur-md bg-opacity-95">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-6">
+                <a href="https://kick.com/diffrent" target="_blank" rel="noopener noreferrer" class="p-2 rounded-lg shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2" class="h-9 w-auto">
+                        <path d="M37 .036h164.448v113.621h54.71v-56.82h54.731V.036h164.448v170.777h-54.73v56.82h-54.711v56.8h54.71v56.82h54.73V512.03H310.89v-56.82h-54.73v-56.8h-54.711v113.62H37V.036z" fill="#53fc18"/>
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="minecraft-font text-xl md:text-3xl text-white tracking-wider">DIFFSMP</h1>
+                    <p class="text-xs text-gray-400 font-medium">Servidor de Minecraft</p>
+                </div>
+            </div>
+            <div class="hidden md:flex items-center space-x-6 text-sm">
+                <a href="#staff" class="text-gray-300 hover:text-white transition font-medium">Staff</a>
+                <a href="#kits" class="text-gray-300 hover:text-white transition font-medium">Kits</a>
+                <a href="#features" class="text-gray-300 hover:text-white transition font-medium">Características</a>
+                <a href="https://kick.com/diffrent" target="_blank" rel="noopener noreferrer" 
+                   class="bg-gradient-to-r from-[#53FC18] to-[#00C851] text-black px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider hover:from-[#00C851] hover:to-[#53FC18] transition-all transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <span>Kick</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative py-24 px-4 pattern-dots overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black opacity-50"></div>
+        <div class="container mx-auto text-center relative z-10 slide-in">
+            <div class="float-animation mb-6">
+                <h2 class="minecraft-font text-3xl md:text-5xl lg:text-6xl text-white mb-4 leading-tight">
+                    ⚔️ BIENVENIDO A DIFFSMP ⚔️
+                </h2>
+            </div>
+            <p class="text-lg md:text-xl lg:text-2xl text-gray-300 mb-6 max-w-3xl mx-auto font-light leading-relaxed">
+                El servidor de Minecraft más épico que has conocido. 
+            </p>
+            <p class="text-base md:text-lg text-gray-400 mb-16 max-w-2xl mx-auto">
+                Explora mundos infinitos, construye tu imperio, lucha en batallas épicas y domina el servidor.
+            </p>
+            
+            <!-- Server IP Box -->
+            <div class="gradient-border rounded-lg p-8 inline-block pulse-glow max-w-md mx-auto mb-12">
+                <div class="relative">
+                    <p class="text-gray-400 mb-4 text-sm font-semibold uppercase tracking-wider">Conecta Ahora</p>
+                    <div class="bg-black/50 rounded-lg p-4 border border-white/10 mb-4">
+                        <p class="server-ip text-xl md:text-2xl lg:text-3xl text-white">
+                            diffsmp.holy.gg
+                        </p>
+                    </div>
+                    <button onclick="copyIP()" 
+                            class="w-full bg-white text-black px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-gray-200 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                        Copiar IP
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-6 max-w-2xl mx-auto mt-16">
+                <div class="stat-card rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-white mb-1">24/7</div>
+                    <div class="text-xs text-gray-400 uppercase tracking-wide">Online</div>
+                </div>
+                <div class="stat-card rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-white mb-1">1.20+</div>
+                    <div class="text-xs text-gray-400 uppercase tracking-wide">Versión</div>
+                </div>
+                <div class="stat-card rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-white mb-1">∞</div>
+                    <div class="text-xs text-gray-400 uppercase tracking-wide">Jugadores</div>
+                </div>
+            </div>
+            
+            <!-- Kick Channel -->
+            <div class="mt-16 text-center">
+                <div class="stat-card rounded-2xl p-8 max-w-lg mx-auto pulse-glow relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#53FC18] via-[#00C851] to-[#53FC18]"></div>
+                    <div class="flex items-center justify-center mb-4">
+                        <div class="p-3 rounded-lg mr-4 shadow-lg">
+                            <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2" class="h-8 w-auto">
+                                <path d="M37 .036h164.448v113.621h54.71v-56.82h54.731V.036h164.448v170.777h-54.73v56.82h-54.711v56.8h54.71v56.82h54.73V512.03H310.89v-56.82h-54.73v-56.8h-54.711v113.62H37V.036z" fill="#53fc18"/>
+                            </svg>
+                        </div>
+                        <div class="text-left">
+                            <h3 class="text-lg font-bold text-white">Sigue al Owner en Kick</h3>
+                            <p class="text-xs text-gray-400">Mira las transmisiones en vivo</p>
+                        </div>
+                    </div>
+                    <a href="https://kick.com/diffrent" target="_blank" rel="noopener noreferrer" 
+                       class="inline-flex items-center justify-center space-x-3 bg-gradient-to-r from-[#53FC18] to-[#00C851] text-black px-8 py-4 rounded-lg font-bold text-base uppercase tracking-wider hover:from-[#00C851] hover:to-[#53FC18] transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl w-full">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        <span>Ver Canal de Diffrent</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+    
+    <!-- Staff Section -->
+    <section id="staff" class="py-20 px-4 bg-gradient-to-b from-black via-gray-900 to-black">
+        <div class="container mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="minecraft-font text-3xl md:text-4xl lg:text-5xl text-white mb-4">
+                    👑 STAFF DEL SERVIDOR 👑
+                </h2>
+                <p class="text-gray-400 text-lg max-w-2xl mx-auto">Conoce al equipo que hace posible DiffSMP</p>
+            </div>
+            
+            <!-- Owner - Destacado -->
+            <div class="max-w-md mx-auto mb-12">
+                <div class="stat-card rounded-2xl p-8 text-center card-hover glow-effect relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent opacity-50"></div>
+                    <div class="mb-6 relative">
+                        <img src="https://mc-heads.net/avatar/Dlffrent/128" 
+                             alt="Dlffrent" 
+                             class="minecraft-head mx-auto w-32 h-32 border-4 border-white rounded-lg">
+                        <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                            <span class="owner-badge">Owner</span>
+                        </div>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2 tracking-wide">Dlffrent</h3>
+                    <p class="text-gray-400 text-sm font-medium">Fundador y Propietario</p>
+                    <div class="mt-4 pt-4 border-t border-white/10">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider">El Creador de DiffSMP</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Admins -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <!-- Admin Farestine_ -->
+                <div class="stat-card rounded-xl p-6 text-center card-hover glow-effect">
+                    <div class="mb-5">
+                        <img src="https://mc-heads.net/avatar/Farestine_/96" 
+                             alt="Farestine_" 
+                             class="minecraft-head mx-auto w-24 h-24 border-2 border-white/30 rounded-lg">
+                    </div>
+                    <div class="mb-3">
+                        <span class="admin-badge">Admin</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Farestine_</h3>
+                    <p class="text-gray-400 text-sm">Administrador</p>
+                </div>
+                
+                <!-- Espacio para más admins si los hay -->
+                <div class="stat-card rounded-xl p-6 text-center card-hover glow-effect opacity-60">
+                    <div class="mb-5">
+                        <div class="mx-auto w-24 h-24 bg-gray-800 border-2 border-white/10 rounded-lg flex items-center justify-center">
+                            <span class="text-4xl">+</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <span class="admin-badge opacity-50">Staff</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-500 mb-2">Más Staff</h3>
+                    <p class="text-gray-600 text-sm">Próximamente</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+    
+    <!-- Kits Section -->
+    <section id="kits" class="py-20 px-4 bg-black pattern-dots">
+        <div class="container mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="minecraft-font text-3xl md:text-4xl lg:text-5xl text-white mb-4">
+                    📦 KITS DISPONIBLES 📦
+                </h2>
+                <p class="text-gray-400 text-lg max-w-2xl mx-auto">Elige tu kit de inicio y comienza tu aventura</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+                <!-- Kit Guerrero -->
+                <div class="stat-card rounded-xl p-6 card-hover group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-bl-full"></div>
+                    <div class="icon-wrapper mb-5 mx-auto group-hover:rotate-12">
+                        <span class="text-3xl">⚔️</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-4 uppercase tracking-wide">Kit Guerrero</h3>
+                    <ul class="text-sm text-gray-300 space-y-2 text-left mb-4">
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>Espada de Hierro</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>Armadura Completa</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>16 Manzanas Doradas</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>32 Flechas</span>
+                        </li>
+                    </ul>
+                    <div class="pt-4 border-t border-white/10">
+                        <code class="text-xs text-gray-400">/kit guerrero</code>
+                    </div>
+                </div>
+                
+                <!-- Kit Minero -->
+                <div class="stat-card rounded-xl p-6 card-hover group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-bl-full"></div>
+                    <div class="icon-wrapper mb-5 mx-auto group-hover:rotate-12">
+                        <span class="text-3xl">⛏️</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-4 uppercase tracking-wide">Kit Minero</h3>
+                    <ul class="text-sm text-gray-300 space-y-2 text-left mb-4">
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>Pico de Hierro</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>64 Carbón</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>32 Antorchas</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>16 Lingotes de Hierro</span>
+                        </li>
+                    </ul>
+                    <div class="pt-4 border-t border-white/10">
+                        <code class="text-xs text-gray-400">/kit minero</code>
+                    </div>
+                </div>
+                
+                <!-- Kit Constructor -->
+                <div class="stat-card rounded-xl p-6 card-hover group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-bl-full"></div>
+                    <div class="icon-wrapper mb-5 mx-auto group-hover:rotate-12">
+                        <span class="text-3xl">🏗️</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-4 uppercase tracking-wide">Kit Constructor</h3>
+                    <ul class="text-sm text-gray-300 space-y-2 text-left mb-4">
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>128 Bloques Variados</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>Hacha de Hierro</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>32 Madera</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>16 Piedra</span>
+                        </li>
+                    </ul>
+                    <div class="pt-4 border-t border-white/10">
+                        <code class="text-xs text-gray-400">/kit constructor</code>
+                    </div>
+                </div>
+                
+                <!-- Kit Mágico -->
+                <div class="stat-card rounded-xl p-6 card-hover group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-bl-full"></div>
+                    <div class="icon-wrapper mb-5 mx-auto group-hover:rotate-12">
+                        <span class="text-3xl">🧙</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-4 uppercase tracking-wide">Kit Mágico</h3>
+                    <ul class="text-sm text-gray-300 space-y-2 text-left mb-4">
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>32 Pociones Variadas</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>Varita Mágica</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>16 Blaze Powder</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-white mr-2">▸</span>
+                            <span>8 Ender Pearls</span>
+                        </li>
+                    </ul>
+                    <div class="pt-4 border-t border-white/10">
+                        <code class="text-xs text-gray-400">/kit magico</code>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-12">
+                <div class="stat-card rounded-lg p-6 max-w-2xl mx-auto inline-block">
+                    <p class="text-gray-300 mb-2">
+                        Usa el comando <code class="bg-black/50 px-3 py-1 rounded text-white font-mono text-sm">/kit [nombre]</code> en el juego
+                    </p>
+                    <p class="text-gray-500 text-sm">Reemplaza [nombre] por: guerrero, minero, constructor o magico</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+    
+    <!-- Features Section -->
+    <section id="features" class="py-20 px-4 bg-gradient-to-b from-gray-900 via-black to-gray-900">
+        <div class="container mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="minecraft-font text-3xl md:text-4xl lg:text-5xl text-white mb-4">
+                    ✨ CARACTERÍSTICAS ✨
+                </h2>
+                <p class="text-gray-400 text-lg max-w-2xl mx-auto">Descubre lo que hace único a DiffSMP</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <div class="stat-card rounded-2xl p-8 text-center card-hover group relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative">
+                        <div class="icon-wrapper mb-6 mx-auto">
+                            <span class="text-4xl">🌍</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-4 uppercase tracking-wide">Mundo Infinito</h3>
+                        <p class="text-gray-400 leading-relaxed">Explora un mundo sin límites lleno de aventuras, biomas únicos y secretos por descubrir</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card rounded-2xl p-8 text-center card-hover group relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative">
+                        <div class="icon-wrapper mb-6 mx-auto">
+                            <span class="text-4xl">⚡</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-4 uppercase tracking-wide">Latencia Baja</h3>
+                        <p class="text-gray-400 leading-relaxed">Servidor optimizado con la mejor infraestructura para una experiencia fluida sin lag</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card rounded-2xl p-8 text-center card-hover group relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative">
+                        <div class="icon-wrapper mb-6 mx-auto">
+                            <span class="text-4xl">🎮</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-4 uppercase tracking-wide">Gameplay Único</h3>
+                        <p class="text-gray-400 leading-relaxed">Sistema personalizado de juego, eventos especiales y mecánicas exclusivas</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Additional Features -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto mt-12">
+                <div class="stat-card rounded-lg p-6 text-center">
+                    <div class="text-3xl mb-3">🛡️</div>
+                    <h4 class="text-sm font-bold text-white mb-2">Anti-Cheat</h4>
+                    <p class="text-xs text-gray-500">Protección avanzada</p>
+                </div>
+                <div class="stat-card rounded-lg p-6 text-center">
+                    <div class="text-3xl mb-3">💎</div>
+                    <h4 class="text-sm font-bold text-white mb-2">Economía</h4>
+                    <p class="text-xs text-gray-500">Sistema integrado</p>
+                </div>
+                <div class="stat-card rounded-lg p-6 text-center">
+                    <div class="text-3xl mb-3">🌍</div>
+                    <h4 class="text-sm font-bold text-white mb-2">Anárquico</h4>
+                    <p class="text-xs text-gray-500">Libertad total</p>
+                </div>
+                <div class="stat-card rounded-lg p-6 text-center">
+                    <div class="text-3xl mb-3">⚔️</div>
+                    <h4 class="text-sm font-bold text-white mb-2">PvP</h4>
+                    <p class="text-xs text-gray-500">Arenas personalizadas</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+    
+    <!-- Footer con Agradecimientos -->
+    <footer class="bg-black border-t border-white/10 py-12 px-4">
+        <div class="container mx-auto">
+            <!-- Agradecimientos -->
+            <div class="text-center mb-12">
+                <p class="minecraft-font text-lg md:text-xl text-white mb-6 tracking-wide">AGRADECIMIENTOS ESPECIALES</p>
+                <div class="stat-card rounded-2xl p-8 max-w-2xl mx-auto inline-block pulse-glow">
+                    <div class="flex items-center justify-center mb-4">
+                        <span class="text-4xl mr-3">🛡️</span>
+                        <p class="text-2xl md:text-3xl font-bold text-white">HOLY HOSTING</p>
+                        <span class="text-4xl ml-3">🛡️</span>
+                    </div>
+                    <p class="text-gray-300 text-sm md:text-base leading-relaxed max-w-xl mx-auto">
+                        Gracias por el excelente hosting y soporte técnico que hace posible este servidor
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Divider -->
+            <div class="border-t border-white/10 my-8"></div>
+            
+            <!-- Copyright -->
+            <div class="text-center">
+                <p class="text-gray-500 text-sm mb-2">© 2024 DiffSMP - Todos los derechos reservados</p>
+                <p class="text-gray-600 text-xs mb-4">Servidor de Minecraft | Versión 1.20+</p>
+                <div class="flex items-center justify-center space-x-6 text-xs text-gray-500">
+                    <span>Creado con ❤️ para la comunidad</span>
+                    <span>•</span>
+                    <span>DiffSMP Team</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function copyIP() {
+            const ip = 'diffsmp.holy.gg';
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            navigator.clipboard.writeText(ip).then(() => {
+                button.textContent = '✓ COPIADO';
+                button.classList.add('bg-green-500', 'hover:bg-green-600');
+                button.classList.remove('bg-white', 'hover:bg-gray-200');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    button.classList.add('bg-white', 'hover:bg-gray-200');
+                }, 2000);
+            }).catch(() => {
+                // Fallback para navegadores antiguos
+                const textarea = document.createElement('textarea');
+                textarea.value = ip;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                
+                button.textContent = '✓ COPIADO';
+                button.classList.add('bg-green-500', 'hover:bg-green-600');
+                button.classList.remove('bg-white', 'hover:bg-gray-200');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    button.classList.add('bg-white', 'hover:bg-gray-200');
+                }, 2000);
+            });
+        }
+        
+        // Smooth scroll para los enlaces del header
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // Intersection Observer para animaciones al hacer scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        // Observar elementos para animaciones
+        document.querySelectorAll('.card-hover').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
